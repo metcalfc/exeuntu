@@ -1,15 +1,19 @@
+# Runtimes are pre-installed in separate Dockerfile layers for caching.
+# Versions here must match the Dockerfile to avoid redundant installs.
 [tools]
-go = "1.25"
+go = "1.25.0"
 python = "3.12"
 ruby = "3.4.8"
-rust = "stable"
-node = "lts"
-uv = "latest"
-buf = "latest"
-ruff = "latest"
-golangci-lint = "latest"
-actionlint = "latest"
-lefthook = "latest"
-"npm:markdownlint-cli" = "latest"
+rust = "1.94.0"
+node = "22.22.1"
+
+# CLI tools — lightweight prebuilt binaries, safe to rebuild together
+uv = "0.10.10"
+buf = "1.66.1"
+ruff = "0.15.6"
+golangci-lint = "2.11.3"
+actionlint = "1.7.11"
+lefthook = "2.1.4"
+"npm:markdownlint-cli" = "0.48.0"
 "go:golang.org/x/tools/cmd/goimports" = "latest"
 "go:golang.org/x/vuln/cmd/govulncheck" = "latest"
