@@ -1,8 +1,3 @@
-# Stage 1: Get Chrome/Chromium from chromedp/headless-shell
-# TODO: pinned due to .pak file issues in newer versions.
-# See https://github.com/chromedp/chromedp/issues/1619
-FROM docker.io/chromedp/headless-shell:145.0.7632.117 AS chrome
-
 FROM ubuntu:24.04
 
 # Switch from dash to bash by default.
@@ -176,12 +171,10 @@ ENV EXEUNTU=1
 # STOPSIGNAL SIGRTMIN+3
 
 
-# Copy the self-contained Chrome bundle from chromedp/headless-shell
-COPY --from=chrome /headless-shell /headless-shell
-ENV PATH="/usr/local/bin:/headless-shell:${PATH}"
+ENV PATH="/usr/local/bin:${PATH}"
 
-RUN mkdir -p /home/exedev /home/exedev/.config/shelley && \
-    chown exedev:exedev /home/exedev /home/exedev/.config /home/exedev/.config/shelley
+RUN mkdir -p /home/exedev /home/exedev/.config && \
+    chown exedev:exedev /home/exedev /home/exedev/.config
 
 USER exedev
 
@@ -206,12 +199,6 @@ RUN rm -rf /etc/update-motd.d/* /etc/motd && touch /home/exedev/.hushlogin && ch
 COPY motd-snippet.bash /tmp/motd-snippet.bash
 RUN cat /tmp/motd-snippet.bash >> /home/exedev/.bashrc && rm /tmp/motd-snippet.bash
 
-# Create systemd socket and service for Shelley (socket activation)
-COPY shelley.socket /etc/systemd/system/shelley.socket
-COPY shelley.service /etc/systemd/system/shelley.service
-RUN chmod 644 /etc/systemd/system/shelley.socket /etc/systemd/system/shelley.service && \
-    systemctl enable shelley.socket
-
 # TODO(crawshaw/philip): This is called init so that exetini decides
 # this wrapper script is an init, and exec's it rather than forking it.
 # It would be better if you could indicate that via an env variable or something.
@@ -233,13 +220,6 @@ RUN ARCH=$(uname -m) && \
 # Create config directories for LLM agents
 RUN mkdir -p /home/exedev/.claude /home/exedev/.codex && \
     chown -R exedev:exedev /home/exedev/.claude /home/exedev/.codex
-
-# Copy LLM agent instructions to Claude, Codex, and Shelley config directories
-# Shelley uses ~/.config/shelley/ (XDG convention, directory already created above)
-COPY AGENTS.md /home/exedev/.config/shelley/AGENTS.md
-RUN cp /home/exedev/.config/shelley/AGENTS.md /home/exedev/.claude/CLAUDE.md && \
-    cp /home/exedev/.config/shelley/AGENTS.md /home/exedev/.codex/AGENTS.md && \
-    chown exedev:exedev /home/exedev/.claude/CLAUDE.md /home/exedev/.codex/AGENTS.md /home/exedev/.config/shelley/AGENTS.md
 
 # Install Claude to the native location (~/.local/bin) so auto-upgrades work correctly.
 # Symlink to /usr/local/bin for system-wide PATH access.
@@ -263,14 +243,21 @@ RUN chmod 644 /var/www/html/index.html
 COPY xterm-ghostty.terminfo /tmp/xterm-ghostty.terminfo
 RUN tic -x - < /tmp/xterm-ghostty.terminfo && rm /tmp/xterm-ghostty.terminfo
 
-# Copy the pre-built shelley binary (built externally for the target architecture)
-# This is placed late in the Dockerfile to maximize layer cache reuse, since
-# shelley is the most frequently changing component.
-COPY shelley /usr/local/bin/shelley
-RUN chmod +x /usr/local/bin/shelley && /usr/local/bin/shelley -help
+# Pre-install GitHub Actions runner binary to avoid ~15-20s download at VM boot
+ARG RUNNER_VERSION
+RUN if [ -n "${RUNNER_VERSION:-}" ]; then \
+      mkdir -p /home/exedev/actions-runner \
+      && cd /home/exedev/actions-runner \
+      && curl -fsSL "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz" \
+         -o runner.tar.gz \
+      && tar xzf runner.tar.gz \
+      && rm runner.tar.gz \
+      && chown -R exedev:exedev /home/exedev/actions-runner; \
+    fi
 
 # Expose the web server ports
 EXPOSE 8000 9999
 
 LABEL "exe.dev/login-user"="exedev"
+LABEL org.opencontainers.image.source="https://github.com/metcalfc/exeuntu"
 CMD ["/usr/local/bin/init"]
