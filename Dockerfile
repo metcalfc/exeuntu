@@ -194,7 +194,16 @@ RUN echo 'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"' >>
 # Configure git to use 'main' as default branch name
 RUN git config --global init.defaultBranch main
 
-# Pre-bake abrihq toolchains via mise
+# Pre-bake abrihq toolchains via mise — split into layers by build cost.
+# Tier 1: Compiled/heavy runtimes get own layers. Changing a CLI tool version
+# in .mise.toml won't trigger a Ruby recompile.
+RUN mise install rust@1.94.0 && mise use -g rust@1.94.0
+RUN mise install ruby@3.4.8 && mise use -g ruby@3.4.8
+RUN mise install go@1.25.0 python@3.12 node@22.22.1 && \
+    mise use -g go@1.25.0 python@3.12 node@22.22.1
+
+# Tier 2: CLI tools — small prebuilt binaries, cheap to reinstall.
+# Only this layer rebuilds when bumping tool versions in .mise.toml.
 COPY --chown=exedev:exedev .mise.toml /home/exedev/.mise.toml
 RUN mise trust /home/exedev/.mise.toml && mise install
 
