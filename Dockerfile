@@ -40,6 +40,7 @@ RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirror://mirrors.ubuntu.c
 		imagemagick ffmpeg \
 		gh \
 		dbus-user-session \
+		libssl-dev libyaml-dev libreadline-dev zlib1g-dev libffi-dev \
 		&& apt-get remove -y pollinate ubuntu-fan && \
 	# Allow non-root users to use ping without sudo by granting CAP_NET_RAW
 	setcap cap_net_raw=+ep /usr/bin/ping && \
@@ -50,6 +51,9 @@ RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirror://mirrors.ubuntu.c
 
 # Install uv to /usr/local/bin
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
+# Install mise for tool version management
+RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 
 # Configure systemd
 RUN rm /etc/systemd/system/multi-user.target.wants/console-setup.service \
@@ -182,12 +186,17 @@ WORKDIR /home/exedev
 
 # Update PATH in .bashrc to include .local/bin and set XDG_RUNTIME_DIR for systemd user services
 # XDG paths are not autopopulated despite the presense of libpam-systemd. Manually add them here.
-RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/exedev/.bashrc && \
+RUN echo 'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"' >> /home/exedev/.bashrc && \
+    echo 'eval "$(mise activate bash)"' >> /home/exedev/.bashrc && \
     echo 'export XDG_RUNTIME_DIR="/run/user/$(id -u)"' >> /home/exedev/.bashrc && \
     echo 'export XDG_RUNTIME_DIR="/run/user/$(id -u)"' >> /home/exedev/.profile
 
 # Configure git to use 'main' as default branch name
 RUN git config --global init.defaultBranch main
+
+# Pre-bake abrihq toolchains via mise
+COPY --chown=exedev:exedev .mise.toml /home/exedev/.mise.toml
+RUN mise trust /home/exedev/.mise.toml && mise install
 
 # Switch back to root to install systemd service
 USER root
