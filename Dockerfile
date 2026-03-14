@@ -52,6 +52,15 @@ RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirror://mirrors.ubuntu.c
 # Install uv to /usr/local/bin
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
+# Install Tailscale for private networking between VMs and bare metal hosts
+RUN curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg \
+      > /usr/share/keyrings/tailscale-archive-keyring.gpg && \
+    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list \
+      > /etc/apt/sources.list.d/tailscale.list && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y tailscale && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install mise for tool version management
 RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 
@@ -118,6 +127,7 @@ RUN rm /etc/systemd/system/multi-user.target.wants/console-setup.service \
 		plymouth-log.service && \
 	# systemd-logind is disabled but not masked. It's involved in populating the XDG runtime dir sockets... somehow
 	systemctl disable docker.service containerd.service getty.target systemd-logind.service \
+		tailscaled.service \
 		nginx.service \
                    console-getty.service \
 		   atop.service \
