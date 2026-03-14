@@ -175,7 +175,7 @@ ENV EXEUNTU=1
 # STOPSIGNAL SIGRTMIN+3
 
 
-ENV PATH="/usr/local/bin:${PATH}"
+ENV PATH="/home/exedev/.local/share/mise/shims:/home/exedev/.local/bin:/usr/local/bin:${PATH}"
 
 RUN mkdir -p /home/exedev /home/exedev/.config && \
     chown exedev:exedev /home/exedev /home/exedev/.config
@@ -209,6 +209,9 @@ RUN mise trust /home/exedev/.mise.toml && mise install
 
 # Switch back to root to install systemd service
 USER root
+
+# Set system-wide PATH so non-interactive shells (e.g., GitHub Actions runner) find mise tools
+RUN echo 'PATH="/home/exedev/.local/share/mise/shims:/home/exedev/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"' > /etc/environment
 
 # Disable Ubuntu's default MOTD (the sudo hint, etc.)
 RUN rm -rf /etc/update-motd.d/* /etc/motd && touch /home/exedev/.hushlogin && chown exedev:exedev /home/exedev/.hushlogin
